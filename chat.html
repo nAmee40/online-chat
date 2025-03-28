@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+
+        .chat-container {
+            width: 600px;
+            max-width: 90%;
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 10px;
+        }
+
+        .sent {
+            align-self: flex-end;
+            background-color: #dcf8c6;
+        }
+
+        .received {
+            align-self: flex-start;
+            background-color: #e5e5ea;
+        }
+
+        .input-container {
+            display: flex;
+            margin-top: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        button {
+            margin-left: 5px;
+            padding: 8px 12px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        img{
+            max-width: 100px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <div class="messages" id="messages"></div>
+        <div class="input-container">
+            <input type="text" id="usernameInput" placeholder="Введите имя...">
+            <input type="text" id="messageInput" placeholder="Введите сообщение...">
+            <button onclick="sendMessage(null)">Отправить</button>
+
+            <input type="file" id="fileInput">
+            <button onclick="sendImage()">Загрузить</button>
+            <p id="status"></p>
+        </div>
+    </div>
+
+    <script>
+
+        const divmesseges = document.querySelector("#messages")
+        const InputUN = document.querySelector("#usernameInput")
+        const InputM = document.querySelector("#messageInput")
+
+        async function sendMessage(img_name) {
+            let text_message = InputM.value.trim()
+            if (text_message === "") return;
+
+            let user_name = InputUN.value.trim()
+            if (user_name === "") return;
+
+            let data;
+            if (img_name == null) {
+                data = {
+                    "text_message": text_message,
+                    "username": user_name
+                }
+            }
+            else{
+                data = {
+                    "text_message": text_message,
+                    "username": user_name,
+                    "img_name": img_name
+                }
+            }   
+
+
+
+
+
+            let fetch_param = {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            }
+
+            await fetch("http://127.0.0.1:8000/send_message", fetch_param)
+
+            divmesseges.scrollTop = divmesseges.scrollHeight
+
+            InputM.value = ""
+        }
+
+        async function historyRead() {
+            let response = await fetch("http://127.0.0.1:8000/chat")
+            let messages = await response.json()
+
+            divmesseges.innerHTML = ""
+
+            messages.forEach(m => {
+                let divm = document.createElement("div")
+
+                if (m.username !== InputUN.value) {
+                    divm.classList.add("message", "received")
+                    divm.textContent = m.username + ": " + m.text_message
+                    if (m.img_name) {
+                        divm.innerHTML += `<img src='http://127.0.0.1:8000/images/${m.img_name}'>`
+                    }
+                }
+                else {
+                    divm.classList.add("message", "sent")
+                    divm.innerHTML = m.text_message
+
+                    if (m.img_name) {
+                        divm.innerHTML += `<img src='http://127.0.0.1:8000/images/${m.img_name}'>`
+                    }
+                }
+
+                divmesseges.appendChild(divm)
+            });
+
+            // divmesseges.scrollTop = divmesseges.scrollHeight
+        }
+
+        setInterval(historyRead, 500)
+
+
+        async function sendImage() {
+            const fileInput = document.querySelector("#fileInput")
+
+            if (fileInput.files.length == 0) {
+                alert("Файл не выбран")
+                return
+            }
+
+            const formData = new FormData()
+            formData.append("file", fileInput.files[0])
+
+            let response = await fetch("http://127.0.0.1:8000/upload", {
+                method: "POST",
+                body: formData
+            })
+
+            const result = await response.json()
+
+            await sendMessage(result.filename)
+            document.querySelector("#status").innerHTML = result.message
+        }
+
+
+
+    </script>
+</body>
+
+</html>
